@@ -1,5 +1,8 @@
 # Organoid Learning Simulation Platform
 
+![Uploading Screenshot 2025-01-13 at 19.32.00.png…]()
+
+
 ## Overview
 A sophisticated scientific simulation platform for analyzing organoid learning capacity through cutting-edge machine learning and interactive data visualization. This platform enables researchers to simulate and analyze how organoids learn and adapt in response to various stimuli, focusing on Organoid Intelligence (OI) and Organoid Learning (OL).
 
