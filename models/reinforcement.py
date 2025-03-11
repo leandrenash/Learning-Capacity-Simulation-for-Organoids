@@ -1,7 +1,24 @@
 import numpy as np
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.optim as optim
 from collections import deque
 import random
+
+class DQN(nn.Module):
+    def __init__(self, state_size, action_size):
+        super(DQN, self).__init__()
+        self.network = nn.Sequential(
+            nn.Linear(state_size, 128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, action_size)
+        )
+    
+    def forward(self, x):
+        return self.network(x)
 
 class ReinforcementLearner:
     def __init__(self, state_size, action_size, learning_rate=0.01, 
@@ -18,33 +35,24 @@ class ReinforcementLearner:
         self.batch_size = batch_size
         
         self.memory = deque(maxlen=memory_size)
-        self.build_model()
-        self.target_model = self.build_model()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Initialize networks
+        self.model = DQN(state_size, action_size).to(self.device)
+        self.target_model = DQN(state_size, action_size).to(self.device)
         self.update_target_model()
+        
+        # Initialize optimizer
+        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.criterion = nn.MSELoss()
         
         self.cumulative_reward = 0
         self.rewards_history = []
         self.loss_history = []
         
-    def build_model(self):
-        """Build the reinforcement learning model"""
-        model = tf.keras.Sequential([
-            tf.keras.layers.Dense(128, activation='relu', input_shape=(self.state_size,)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Dense(64, activation='relu'),
-            tf.keras.layers.Dense(self.action_size, activation='linear')
-        ])
-        
-        model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss='mse'
-        )
-        
-        return model
-        
     def update_target_model(self):
         """Update the target network to match the main network"""
-        self.target_model.set_weights(self.model.get_weights())
+        self.target_model.load_state_dict(self.model.state_dict())
         
     def memorize(self, state, action, reward, next_state, done):
         """Store experience in memory"""
@@ -58,9 +66,10 @@ class ReinforcementLearner:
             return random.randrange(self.action_size)
             
         # Exploitation: select best action
-        state = np.reshape(state, [1, self.state_size])
-        q_values = self.model.predict(state, verbose=0)[0]
-        return np.argmax(q_values)
+        with torch.no_grad():
+            state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            q_values = self.model(state)
+            return q_values.argmax().item()
     
     def replay(self):
         """Train the model using experience replay"""
@@ -70,35 +79,29 @@ class ReinforcementLearner:
         # Sample a batch from memory
         minibatch = random.sample(self.memory, self.batch_size)
         
-        states = []
-        targets = []
+        states = torch.FloatTensor([data[0] for data in minibatch]).to(self.device)
+        actions = torch.LongTensor([data[1] for data in minibatch]).to(self.device)
+        rewards = torch.FloatTensor([data[2] for data in minibatch]).to(self.device)
+        next_states = torch.FloatTensor([data[3] for data in minibatch]).to(self.device)
+        dones = torch.FloatTensor([data[4] for data in minibatch]).to(self.device)
         
-        for state, action, reward, next_state, done in minibatch:
-            state = np.reshape(state, [1, self.state_size])
-            next_state = np.reshape(next_state, [1, self.state_size])
-            
-            # Calculate target Q value
-            if done:
-                target = reward
-            else:
-                # Double DQN: select action using policy network, evaluate using target network
-                next_action = np.argmax(self.model.predict(next_state, verbose=0)[0])
-                target = reward + self.gamma * self.target_model.predict(next_state, verbose=0)[0][next_action]
-            
-            # Build target vector
-            target_f = self.model.predict(state, verbose=0)
-            target_f[0][action] = target
-            
-            states.append(state[0])
-            targets.append(target_f[0])
-            
-        # Train the network
-        history = self.model.fit(np.array(states), np.array(targets), 
-                        epochs=1, verbose=0, batch_size=self.batch_size)
+        # Current Q values
+        current_q_values = self.model(states).gather(1, actions.unsqueeze(1))
+        
+        # Next Q values
+        with torch.no_grad():
+            next_actions = self.model(next_states).argmax(1)
+            next_q_values = self.target_model(next_states).gather(1, next_actions.unsqueeze(1))
+            target_q_values = rewards.unsqueeze(1) + (1 - dones.unsqueeze(1)) * self.gamma * next_q_values
+        
+        # Compute loss and update
+        loss = self.criterion(current_q_values, target_q_values)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
         
         # Record loss
-        if history.history.get('loss'):
-            self.loss_history.append(history.history['loss'][0])
+        self.loss_history.append(loss.item())
         
         # Decay exploration rate
         if self.epsilon > self.epsilon_min:

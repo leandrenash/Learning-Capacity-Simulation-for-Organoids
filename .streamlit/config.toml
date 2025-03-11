@@ -1,0 +1,12 @@
+[server]
+headless = true
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+
+[logger]
+level = "info"

@@ -99,49 +99,51 @@ def create_network_graph(weights, neuron_types=None, threshold=0.1, max_neurons=
     weights_filtered = weights[:n_neurons, :n_neurons].copy()
     weights_filtered[np.abs(weights_filtered) < threshold] = 0
     
-    # Create edges
-    edges_x = []
-    edges_y = []
-    edge_colors = []
-    
     # Create positions for neurons in a circle
     theta = np.linspace(0, 2*np.pi, n_neurons)
     x_pos = np.cos(theta)
     y_pos = np.sin(theta)
     
-    # Add edges
-    for i in range(n_neurons):
-        for j in range(n_neurons):
-            if weights_filtered[i, j] != 0:
-                edges_x.extend([x_pos[i], x_pos[j], None])
-                edges_y.extend([y_pos[i], y_pos[j], None])
-                # Color based on excitatory (blue) or inhibitory (red)
-                if weights_filtered[i, j] > 0:
-                    edge_colors.extend(['rgba(0,0,255,0.3)'] * 3)
-                else:
-                    edge_colors.extend(['rgba(255,0,0,0.3)'] * 3)
+    # Create figure
+    fig = go.Figure()
     
-    # Create node colors based on neuron types
+    # Add edges for excitatory connections
+    excitatory_mask = weights_filtered > 0
+    if np.any(excitatory_mask):
+        for i in range(n_neurons):
+            for j in range(n_neurons):
+                if weights_filtered[i, j] > 0:
+                    fig.add_trace(go.Scatter(
+                        x=[x_pos[i], x_pos[j], None],
+                        y=[y_pos[i], y_pos[j], None],
+                        mode='lines',
+                        line=dict(color='rgba(0,0,255,0.3)', width=1),
+                        hoverinfo='none',
+                        showlegend=False
+                    ))
+    
+    # Add edges for inhibitory connections
+    inhibitory_mask = weights_filtered < 0
+    if np.any(inhibitory_mask):
+        for i in range(n_neurons):
+            for j in range(n_neurons):
+                if weights_filtered[i, j] < 0:
+                    fig.add_trace(go.Scatter(
+                        x=[x_pos[i], x_pos[j], None],
+                        y=[y_pos[i], y_pos[j], None],
+                        mode='lines',
+                        line=dict(color='rgba(255,0,0,0.3)', width=1),
+                        hoverinfo='none',
+                        showlegend=False
+                    ))
+    
+    # Add nodes
     if neuron_types is not None:
         neuron_types = neuron_types[:n_neurons]
         node_colors = ['blue' if t else 'red' for t in neuron_types]
     else:
         node_colors = ['blue'] * n_neurons
     
-    # Create figure
-    fig = go.Figure()
-    
-    # Add edges
-    fig.add_trace(go.Scatter(
-        x=edges_x,
-        y=edges_y,
-        mode='lines',
-        line=dict(color=edge_colors, width=1),
-        hoverinfo='none',
-        showlegend=False
-    ))
-    
-    # Add nodes
     fig.add_trace(go.Scatter(
         x=x_pos,
         y=y_pos,
@@ -170,6 +172,9 @@ def plot_frequency_analysis(signal, sampling_rate=1.0, title="Frequency Analysis
     """Perform frequency analysis of neural activity"""
     # Calculate spectrogram
     f, t, Sxx = spectrogram(signal, fs=sampling_rate)
+    
+    # Add small constant to avoid log(0)
+    Sxx = Sxx + 1e-10
     
     # Create heatmap
     fig = go.Figure(data=go.Heatmap(

@@ -1,6 +1,18 @@
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
+import os
+import sys
+
+# Add the current directory to Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Configure asyncio to use the event loop policy appropriate for the platform
+try:
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+except AttributeError:
+    # Not on Windows, use default policy
+    pass
 
 st.set_page_config(
     page_title="Organoid Learning Simulation",
