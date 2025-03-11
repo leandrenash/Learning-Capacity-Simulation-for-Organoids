@@ -1,7 +1,5 @@
 # Organoid Learning Simulation Platform 
 
-View Here - (https://organolearn.leandrenash.com/)
-
 
 ![ezgif-3f9793b80a748b](https://github.com/user-attachments/assets/fd00ce04-2b21-460c-9e4c-520201899af7)
 
