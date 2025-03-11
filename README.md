@@ -2,7 +2,8 @@
 
 View Here - (https://organolearn.leandrenash.com/)
 
-<img width="1457" alt="Screenshot 2025-01-13 at 19 32 00" src="https://github.com/user-attachments/assets/90ddcc25-c989-484f-a7ec-cd528d99d37a" />
+
+![ezgif-3f9793b80a748b](https://github.com/user-attachments/assets/fd00ce04-2b21-460c-9e4c-520201899af7)
 
 
 
